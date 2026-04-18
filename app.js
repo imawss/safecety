@@ -215,7 +215,7 @@ function toggleDrawMode() {
   canvasWrap.style.touchAction = drawMode ? 'none' : 'pan-x pan-y';
 }
 
-function render() {
+function render(clean = false) {
   if (!originalImage) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.filter = 'none';
@@ -225,15 +225,17 @@ function render() {
     if (face.blurred) drawBlur(face.box);
   }
 
-  for (const face of faces) {
-    if (!face.blurred) {
-      const b = expandBox(face.box, 4);
-      ctx.save();
-      ctx.strokeStyle = 'rgba(157, 143, 255, 0.75)';
-      ctx.lineWidth   = Math.max(2, canvas.width / 500);
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(b.x, b.y, b.width, b.height);
-      ctx.restore();
+  if (!clean) {
+    for (const face of faces) {
+      if (!face.blurred) {
+        const b = expandBox(face.box, 4);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(157, 143, 255, 0.75)';
+        ctx.lineWidth   = Math.max(2, canvas.width / 500);
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(b.x, b.y, b.width, b.height);
+        ctx.restore();
+      }
     }
   }
 }
@@ -319,10 +321,12 @@ function blurAll() {
 }
 
 function downloadImage() {
+  render(true);
   const a    = document.createElement('a');
   a.href     = canvas.toDataURL('image/png');
   a.download = 'safecety-photo.png';
   a.click();
+  render();
 }
 
 function resetToUpload() {
