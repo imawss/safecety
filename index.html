@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Safecety</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header>
+      <div class="logo">
+        <svg class="logo-icon" width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <path d="M18 3L5 9v9c0 7.7 5.6 14.4 13 16.5C25.4 32.4 31 25.7 31 18V9L18 3z"
+                fill="url(#shield-fill)" stroke="url(#shield-stroke)" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M11.5 18c0 0 2.5-4.5 6.5-4.5s6.5 4.5 6.5 4.5-2.5 4.5-6.5 4.5-6.5-4.5-6.5-4.5z"
+                stroke="url(#eye-stroke)" stroke-width="1.4" fill="none" stroke-linejoin="round"/>
+          <circle cx="18" cy="18" r="1.8" fill="url(#dot-fill)"/>
+          <line x1="12" y1="12.5" x2="24" y2="23.5" stroke="url(#slash-stroke)" stroke-width="1.6" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="shield-fill" x1="5" y1="3" x2="31" y2="36" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#7c6ef5" stop-opacity="0.18"/>
+              <stop offset="1" stop-color="#a78bfa" stop-opacity="0.06"/>
+            </linearGradient>
+            <linearGradient id="shield-stroke" x1="5" y1="3" x2="31" y2="36" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#9d8fff"/>
+              <stop offset="1" stop-color="#7c6ef5"/>
+            </linearGradient>
+            <linearGradient id="eye-stroke" x1="11" y1="13" x2="25" y2="23" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#9d8fff"/>
+              <stop offset="1" stop-color="#7c6ef5"/>
+            </linearGradient>
+            <linearGradient id="dot-fill" x1="16" y1="16" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#9d8fff"/>
+              <stop offset="1" stop-color="#7c6ef5"/>
+            </linearGradient>
+            <linearGradient id="slash-stroke" x1="12" y1="12" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#9d8fff"/>
+              <stop offset="1" stop-color="#7c6ef5"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span>Safecety</span>
+      </div>
+      <p class="subtitle">Automatically blur faces in photos before sharing. Tap any face to reveal it.</p>
+    </header>
+
+    <main>
+
+      <div id="upload-zone" class="upload-zone">
+        <input type="file" id="file-input" accept="image/*" hidden />
+        <div class="upload-content">
+          <div class="upload-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path d="M14 3v16M14 3L9 8M14 3l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 20v3a2 2 0 002 2h16a2 2 0 002-2v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="upload-text">
+            <p class="upload-title">Drop a photo here or <span class="link">browse</span></p>
+            <p class="upload-hint">JPG · PNG · WEBP &nbsp;·&nbsp; Processed entirely in your browser</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="status-bar" class="status-bar hidden">
+        <div id="status-spinner" class="spinner hidden"></div>
+        <span id="status-text"></span>
+      </div>
+
+      <div id="canvas-wrap" class="canvas-wrap hidden">
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div id="canvas-hints" class="canvas-hints hidden">
+        <span class="hint-chip">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1C3.7 1 1 3.7 1 7s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6z" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M4.5 7.5L6.5 9.5L9.5 5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Tap face to reveal
+        </span>
+        <span class="hint-chip">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <rect x="1.5" y="1.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2.5 1.5"/>
+            <path d="M7 4.5v5M4.5 7h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Drag to blur missed face
+        </span>
+        <span class="hint-chip">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M1 7c0 0 2.5-5 6-5s6 5 6 5-2.5 5-6 5-6-5-6-5z" stroke="currentColor" stroke-width="1.3" fill="none"/>
+            <circle cx="7" cy="7" r="1.8" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          Tap revealed to re-blur
+        </span>
+      </div>
+
+      <div id="action-bar" class="action-bar hidden">
+        <div class="action-secondary">
+          <button id="btn-redetect" class="btn btn-ghost">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path d="M2 8C2 4.69 4.69 2 8 2C10.1 2 11.95 3.08 13 4.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M14 8C14 11.31 11.31 14 8 14C5.9 14 4.05 12.92 3 11.29" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M13 2v3h-3M3 14v-3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            New Photo
+          </button>
+          <button id="btn-blur-all" class="btn btn-secondary">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path d="M2 8c0 0 2.5-5 6-5s6 5 6 5-2.5 5-6 5-6-5-6-5z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <line x1="4" y1="4" x2="12" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Blur All
+          </button>
+        </div>
+        <button id="btn-download" class="btn btn-primary">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2v8M8 10L5.5 7.5M8 10l2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2.5 12.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Save Photo
+        </button>
+      </div>
+
+      <div id="face-counter" class="face-counter hidden"></div>
+
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
