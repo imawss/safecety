@@ -51,3 +51,9 @@ All processing happens locally in the browser using the Web ML model loaded from
 ## Browser Support
 
 Chrome · Firefox · Safari · Edge — any browser released after 2020.
+
+---
+
+## Development Notes
+
+The canvas rendering pipeline — including the pixelation blur effect, Pointer Events interaction layer, hit detection scaling, and draw mode — was implemented with the help of [Claude Code](https://claude.ai/code).
