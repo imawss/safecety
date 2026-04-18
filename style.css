@@ -191,7 +191,7 @@ main {
   overflow: hidden;
   border: 1px solid var(--border);
   background: #000;
-  touch-action: none;
+  touch-action: pan-x pan-y;
   box-shadow: 0 8px 40px rgba(0,0,0,0.5);
 }
 
@@ -299,6 +299,10 @@ main {
 
 .face-counter.hidden { display: none; }
 .face-counter strong { color: var(--text-muted); font-weight: 600; }
+
+@media (hover: none) {
+  .hint-desktop-only { display: none; }
+}
 
 @media (max-width: 520px) {
   .app     { padding: 24px 12px 48px; }

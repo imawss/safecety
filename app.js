@@ -63,14 +63,38 @@ function setupUploadZone() {
     if (!isDragging) { dragStart = null; dragCurrent = null; }
   });
 
-  canvas.addEventListener('touchstart',  e => onMouseDown(touchToMouse(e)), { passive: true });
-  canvas.addEventListener('touchmove',   e => onMouseMove(touchToMouse(e)), { passive: true });
-  canvas.addEventListener('touchend',    e => onMouseUp(touchToMouse(e)));
-}
+  let touchStartPos  = null;
+  let touchStartTime = 0;
 
-function touchToMouse(e) {
-  const t = e.touches[0] || e.changedTouches[0];
-  return { clientX: t.clientX, clientY: t.clientY, preventDefault: () => e.preventDefault() };
+  canvas.addEventListener('touchstart', e => {
+    if (!originalImage) return;
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    touchStartPos  = {
+      x: (t.clientX - rect.left) * (canvas.width  / rect.width),
+      y: (t.clientY - rect.top)  * (canvas.height / rect.height),
+    };
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', e => {
+    if (!originalImage || !touchStartPos) return;
+    const t = e.changedTouches[0];
+    const rect = canvas.getBoundingClientRect();
+    const ex = (t.clientX - rect.left) * (canvas.width  / rect.width);
+    const ey = (t.clientY - rect.top)  * (canvas.height / rect.height);
+    const dist = Math.hypot(ex - touchStartPos.x, ey - touchStartPos.y);
+
+    if (dist < 22 && Date.now() - touchStartTime < 500) {
+      const face = hitFace(touchStartPos.x, touchStartPos.y);
+      if (face) {
+        face.blurred = !face.blurred;
+        render();
+        updateCounter();
+      }
+    }
+    touchStartPos = null;
+  }, { passive: true });
 }
 
 async function loadImage(file) {
