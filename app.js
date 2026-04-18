@@ -2,40 +2,53 @@
 
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model/';
 
-let originalImage = null;
-let faces = [];
-let modelsLoaded = false;
+let originalImage  = null;
+let faces          = [];
+let modelsLoaded   = false;
+let drawMode       = false;
+let progressTimer  = null;
 
 let dragStart    = null;
 let dragCurrent  = null;
 let isDragging   = false;
 const DRAG_MIN   = 12;
 
+let touchStartPos  = null;
+let touchStartTime = 0;
+let touchDragCur   = null;
+let touchDragging  = false;
+
 const uploadZone    = document.getElementById('upload-zone');
 const fileInput     = document.getElementById('file-input');
 const statusBar     = document.getElementById('status-bar');
 const statusText    = document.getElementById('status-text');
 const statusSpinner = document.getElementById('status-spinner');
+const progressTrack = document.getElementById('progress-track');
+const progressFill  = document.getElementById('progress-fill');
 const canvasWrap    = document.getElementById('canvas-wrap');
 const canvas        = document.getElementById('canvas');
 const ctx           = canvas.getContext('2d');
 const actionBar     = document.getElementById('action-bar');
 const faceCounter   = document.getElementById('face-counter');
+const btnDrawMode   = document.getElementById('btn-draw-mode');
 
 async function init() {
-  setupUploadZone();
+  setupEvents();
   setStatus('Loading face detection model…', true);
+  setProgress(0);
   try {
     await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
     modelsLoaded = true;
+    setProgress(null);
     setStatus('Ready — upload a photo to get started.', false);
   } catch (err) {
+    setProgress(null);
     setStatus('Failed to load model. Check your connection and reload.', false);
     console.error(err);
   }
 }
 
-function setupUploadZone() {
+function setupEvents() {
   uploadZone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', e => {
     if (e.target.files[0]) loadImage(e.target.files[0]);
@@ -55,6 +68,7 @@ function setupUploadZone() {
   document.getElementById('btn-redetect').addEventListener('click', resetToUpload);
   document.getElementById('btn-blur-all').addEventListener('click', blurAll);
   document.getElementById('btn-download').addEventListener('click', downloadImage);
+  btnDrawMode.addEventListener('click', toggleDrawMode);
 
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
@@ -63,38 +77,9 @@ function setupUploadZone() {
     if (!isDragging) { dragStart = null; dragCurrent = null; }
   });
 
-  let touchStartPos  = null;
-  let touchStartTime = 0;
-
-  canvas.addEventListener('touchstart', e => {
-    if (!originalImage) return;
-    const t = e.touches[0];
-    const rect = canvas.getBoundingClientRect();
-    touchStartPos  = {
-      x: (t.clientX - rect.left) * (canvas.width  / rect.width),
-      y: (t.clientY - rect.top)  * (canvas.height / rect.height),
-    };
-    touchStartTime = Date.now();
-  }, { passive: true });
-
-  canvas.addEventListener('touchend', e => {
-    if (!originalImage || !touchStartPos) return;
-    const t = e.changedTouches[0];
-    const rect = canvas.getBoundingClientRect();
-    const ex = (t.clientX - rect.left) * (canvas.width  / rect.width);
-    const ey = (t.clientY - rect.top)  * (canvas.height / rect.height);
-    const dist = Math.hypot(ex - touchStartPos.x, ey - touchStartPos.y);
-
-    if (dist < 22 && Date.now() - touchStartTime < 500) {
-      const face = hitFace(touchStartPos.x, touchStartPos.y);
-      if (face) {
-        face.blurred = !face.blurred;
-        render();
-        updateCounter();
-      }
-    }
-    touchStartPos = null;
-  }, { passive: true });
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchmove',  onTouchMove,  { passive: false });
+  canvas.addEventListener('touchend',   onTouchEnd,   { passive: true  });
 }
 
 async function loadImage(file) {
@@ -102,6 +87,9 @@ async function loadImage(file) {
     setStatus('Model still loading, please wait…', true);
     return;
   }
+
+  setStatus('Reading image…', true);
+  setProgress(10);
 
   const url = URL.createObjectURL(file);
   const img  = new Image();
@@ -114,8 +102,10 @@ async function loadImage(file) {
     canvas.height = img.naturalHeight;
     ctx.drawImage(img, 0, 0);
 
+    setProgress(30);
     showCanvas();
     setStatus('Detecting faces…', true);
+    animateProgress(30, 88, 3500);
 
     try {
       const detections = await faceapi.detectAllFaces(
@@ -125,26 +115,59 @@ async function loadImage(file) {
 
       faces = detections.map(d => ({ box: d.box, blurred: true, manual: false }));
 
+      setProgress(100);
       render();
       updateCounter();
 
+      setTimeout(() => setProgress(null), 700);
+
       if (faces.length === 0) {
-        setStatus('No faces detected. Drag on the photo to manually blur any area.', false);
+        setStatus('No faces detected. Use Draw to manually blur any area.', false);
       } else {
         setStatus(
-          `${faces.length} face${faces.length > 1 ? 's' : ''} detected and blurred. ` +
-          `Drag to manually blur missed faces.`,
+          `${faces.length} face${faces.length > 1 ? 's' : ''} detected and blurred.`,
           false
         );
       }
     } catch (err) {
+      setProgress(null);
       setStatus('Detection failed. Try another photo.', false);
       console.error(err);
     }
   };
 
-  img.onerror = () => setStatus('Could not load image.', false);
+  img.onerror = () => { setProgress(null); setStatus('Could not load image.', false); };
   img.src = url;
+}
+
+function setProgress(pct) {
+  clearInterval(progressTimer);
+  if (pct === null) {
+    progressTrack.classList.add('hidden');
+    return;
+  }
+  progressTrack.classList.remove('hidden');
+  progressFill.style.width = pct + '%';
+}
+
+function animateProgress(from, to, duration) {
+  clearInterval(progressTimer);
+  progressFill.style.width = from + '%';
+  const steps    = 30;
+  const interval = duration / steps;
+  const step     = (to - from) / steps;
+  let current    = from;
+  progressTimer  = setInterval(() => {
+    current = Math.min(current + step, to);
+    progressFill.style.width = current + '%';
+    if (current >= to) clearInterval(progressTimer);
+  }, interval);
+}
+
+function toggleDrawMode() {
+  drawMode = !drawMode;
+  btnDrawMode.classList.toggle('active', drawMode);
+  canvasWrap.style.touchAction = drawMode ? 'none' : 'pan-x pan-y';
 }
 
 function render() {
@@ -170,13 +193,12 @@ function render() {
   }
 }
 
-function renderWithDrag() {
+function renderWithSelection(sx, sy, ex, ey) {
   render();
-  if (!isDragging || !dragStart || !dragCurrent) return;
-  const x = Math.min(dragStart.x, dragCurrent.x);
-  const y = Math.min(dragStart.y, dragCurrent.y);
-  const w = Math.abs(dragCurrent.x - dragStart.x);
-  const h = Math.abs(dragCurrent.y - dragStart.y);
+  const x = Math.min(sx, ex);
+  const y = Math.min(sy, ey);
+  const w = Math.abs(ex - sx);
+  const h = Math.abs(ey - sy);
   ctx.save();
   ctx.fillStyle   = 'rgba(124, 110, 245, 0.18)';
   ctx.strokeStyle = '#9d8fff';
@@ -185,6 +207,19 @@ function renderWithDrag() {
   ctx.fillRect(x, y, w, h);
   ctx.strokeRect(x, y, w, h);
   ctx.restore();
+}
+
+function commitDrag(sx, sy, ex, ey) {
+  const x = Math.min(sx, ex);
+  const y = Math.min(sy, ey);
+  const w = Math.abs(ex - sx);
+  const h = Math.abs(ey - sy);
+  if (w > 10 && h > 10) {
+    faces.push({ box: { x, y, width: w, height: h }, blurred: true, manual: true });
+    render();
+    updateCounter();
+    setStatus('Blur zone added. Draw more or tap face to toggle.', false);
+  }
 }
 
 function drawBlur(box) {
@@ -198,9 +233,7 @@ function drawBlur(box) {
   const tmp  = document.createElement('canvas');
   tmp.width  = sw;
   tmp.height = sh;
-  const tctx = tmp.getContext('2d');
-
-  tctx.drawImage(originalImage, x, y, width, height, 0, 0, sw, sh);
+  tmp.getContext('2d').drawImage(originalImage, x, y, width, height, 0, 0, sw, sh);
 
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -216,17 +249,20 @@ function expandBox(box, pad) {
   return { x, y, width: x2 - x, height: y2 - y };
 }
 
-function canvasCoords(e) {
+function canvasCoords(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   return {
-    x: (e.clientX - rect.left) * (canvas.width  / rect.width),
-    y: (e.clientY - rect.top)  * (canvas.height / rect.height),
+    x: (clientX - rect.left) * (canvas.width  / rect.width),
+    y: (clientY - rect.top)  * (canvas.height / rect.height),
   };
 }
 
 function hitFace(px, py) {
+  const rect     = canvas.getBoundingClientRect();
+  const scale    = canvas.width / rect.width;
+  const canvasPad = 28 * scale;
   for (let i = faces.length - 1; i >= 0; i--) {
-    const b = expandBox(faces[i].box, 8);
+    const b = expandBox(faces[i].box, canvasPad);
     if (px >= b.x && px <= b.x + b.width && py >= b.y && py <= b.y + b.height) {
       return faces[i];
     }
@@ -236,15 +272,14 @@ function hitFace(px, py) {
 
 function onMouseDown(e) {
   if (!originalImage) return;
-  const pos = canvasCoords(e);
-  dragStart   = pos;
-  dragCurrent = pos;
-  isDragging  = false;
+  const pos = canvasCoords(e.clientX, e.clientY);
+  dragStart = dragCurrent = pos;
+  isDragging = false;
 }
 
 function onMouseMove(e) {
   if (!originalImage) return;
-  const pos = canvasCoords(e);
+  const pos = canvasCoords(e.clientX, e.clientY);
 
   if (dragStart) {
     const dx = pos.x - dragStart.x;
@@ -252,31 +287,20 @@ function onMouseMove(e) {
     if (Math.sqrt(dx * dx + dy * dy) > DRAG_MIN) {
       isDragging  = true;
       dragCurrent = pos;
-      renderWithDrag();
+      renderWithSelection(dragStart.x, dragStart.y, pos.x, pos.y);
       canvas.style.cursor = 'crosshair';
       return;
     }
   }
-
   canvas.style.cursor = hitFace(pos.x, pos.y) ? 'pointer' : 'crosshair';
 }
 
 function onMouseUp(e) {
   if (!originalImage) return;
-  const pos = canvasCoords(e);
+  const pos = canvasCoords(e.clientX, e.clientY);
 
   if (isDragging && dragStart) {
-    const x = Math.min(dragStart.x, pos.x);
-    const y = Math.min(dragStart.y, pos.y);
-    const w = Math.abs(pos.x - dragStart.x);
-    const h = Math.abs(pos.y - dragStart.y);
-
-    if (w > 10 && h > 10) {
-      faces.push({ box: { x, y, width: w, height: h }, blurred: true, manual: true });
-      render();
-      updateCounter();
-      setStatus('Manual blur zone added. Drag to add more, click to toggle.', false);
-    }
+    commitDrag(dragStart.x, dragStart.y, pos.x, pos.y);
   } else if (dragStart) {
     const face = hitFace(dragStart.x, dragStart.y);
     if (face) {
@@ -286,9 +310,54 @@ function onMouseUp(e) {
     }
   }
 
-  isDragging  = false;
-  dragStart   = null;
-  dragCurrent = null;
+  isDragging = false;
+  dragStart  = dragCurrent = null;
+}
+
+function onTouchStart(e) {
+  if (!originalImage) return;
+  if (drawMode) e.preventDefault();
+  const t = e.touches[0];
+  touchStartPos  = canvasCoords(t.clientX, t.clientY);
+  touchDragCur   = { ...touchStartPos };
+  touchStartTime = Date.now();
+  touchDragging  = false;
+}
+
+function onTouchMove(e) {
+  if (!originalImage || !touchStartPos) return;
+  if (!drawMode) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  touchDragCur  = canvasCoords(t.clientX, t.clientY);
+  const dist    = Math.hypot(touchDragCur.x - touchStartPos.x, touchDragCur.y - touchStartPos.y);
+  if (dist > 8) {
+    touchDragging = true;
+    renderWithSelection(touchStartPos.x, touchStartPos.y, touchDragCur.x, touchDragCur.y);
+  }
+}
+
+function onTouchEnd(e) {
+  if (!originalImage || !touchStartPos) return;
+  const t  = e.changedTouches[0];
+  const ep = canvasCoords(t.clientX, t.clientY);
+
+  if (drawMode && touchDragging) {
+    commitDrag(touchStartPos.x, touchStartPos.y, touchDragCur.x, touchDragCur.y);
+  } else {
+    const dist = Math.hypot(ep.x - touchStartPos.x, ep.y - touchStartPos.y);
+    if (dist < 22 && Date.now() - touchStartTime < 500) {
+      const face = hitFace(touchStartPos.x, touchStartPos.y);
+      if (face) {
+        face.blurred = !face.blurred;
+        render();
+        updateCounter();
+      }
+    }
+  }
+
+  touchStartPos = touchDragCur = null;
+  touchDragging = false;
 }
 
 function blurAll() {
@@ -298,21 +367,25 @@ function blurAll() {
 }
 
 function downloadImage() {
-  const a      = document.createElement('a');
-  a.href       = canvas.toDataURL('image/png');
-  a.download   = 'safecety-photo.png';
+  const a    = document.createElement('a');
+  a.href     = canvas.toDataURL('image/png');
+  a.download = 'safecety-photo.png';
   a.click();
 }
 
 function resetToUpload() {
   originalImage = null;
   faces         = [];
+  drawMode      = false;
   fileInput.value = '';
   uploadZone.style.display = '';
+  canvasWrap.style.touchAction = 'pan-x pan-y';
+  btnDrawMode.classList.remove('active');
   canvasWrap.classList.add('hidden');
   actionBar.classList.add('hidden');
   faceCounter.classList.add('hidden');
   document.getElementById('canvas-hints').classList.add('hidden');
+  setProgress(null);
   setStatus('Ready — upload a photo to get started.', false);
 }
 

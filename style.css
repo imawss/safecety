@@ -161,15 +161,35 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 16px;
+  padding: 11px 16px 16px;
   background: var(--surface);
   border: 1px solid var(--border-sub);
   border-radius: var(--radius-sm);
   font-size: 13.5px;
   color: var(--text-muted);
+  position: relative;
+  overflow: hidden;
 }
 
 .status-bar.hidden { display: none; }
+
+.progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--border);
+}
+
+.progress-track.hidden { display: none; }
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transition: width 0.35s ease;
+}
 
 .spinner {
   width: 15px;
@@ -193,9 +213,46 @@ main {
   background: #000;
   touch-action: pan-x pan-y;
   box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  position: relative;
 }
 
 .canvas-wrap.hidden { display: none; }
+
+.draw-btn {
+  display: none;
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 0 10px;
+  height: 40px;
+  border-radius: 20px;
+  background: rgba(14, 14, 26, 0.82);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.draw-btn-label { line-height: 1; }
+
+.draw-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(124,110,245,0.15);
+}
+
+@media (hover: none) {
+  .draw-btn { display: inline-flex; }
+}
 
 #canvas {
   display: block;
@@ -299,6 +356,10 @@ main {
 
 .face-counter.hidden { display: none; }
 .face-counter strong { color: var(--text-muted); font-weight: 600; }
+
+@media (hover: fine) {
+  .hint-touch-only { display: none; }
+}
 
 @media (hover: none) {
   .hint-desktop-only { display: none; }
