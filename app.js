@@ -8,15 +8,17 @@ let modelsLoaded   = false;
 let drawMode       = false;
 let progressTimer  = null;
 
-let dragStart    = null;
-let dragCurrent  = null;
-let isDragging   = false;
-const DRAG_MIN   = 12;
+let dragStart       = null;
+let dragStartClient = null;
+let dragCurrent     = null;
+let isDragging      = false;
+const DRAG_MIN_CSS  = 8;
 
-let touchStartPos  = null;
-let touchStartTime = 0;
-let touchDragCur   = null;
-let touchDragging  = false;
+let touchStartPos    = null;
+let touchStartClient = null;
+let touchStartTime   = 0;
+let touchDragCur     = null;
+let touchDragging    = false;
 
 const uploadZone    = document.getElementById('upload-zone');
 const fileInput     = document.getElementById('file-input');
@@ -272,19 +274,20 @@ function hitFace(px, py) {
 
 function onMouseDown(e) {
   if (!originalImage) return;
-  const pos = canvasCoords(e.clientX, e.clientY);
-  dragStart = dragCurrent = pos;
-  isDragging = false;
+  dragStart       = canvasCoords(e.clientX, e.clientY);
+  dragStartClient = { x: e.clientX, y: e.clientY };
+  dragCurrent     = dragStart;
+  isDragging      = false;
 }
 
 function onMouseMove(e) {
   if (!originalImage) return;
   const pos = canvasCoords(e.clientX, e.clientY);
 
-  if (dragStart) {
-    const dx = pos.x - dragStart.x;
-    const dy = pos.y - dragStart.y;
-    if (Math.sqrt(dx * dx + dy * dy) > DRAG_MIN) {
+  if (dragStartClient) {
+    const dx = e.clientX - dragStartClient.x;
+    const dy = e.clientY - dragStartClient.y;
+    if (Math.sqrt(dx * dx + dy * dy) > DRAG_MIN_CSS) {
       isDragging  = true;
       dragCurrent = pos;
       renderWithSelection(dragStart.x, dragStart.y, pos.x, pos.y);
@@ -310,28 +313,28 @@ function onMouseUp(e) {
     }
   }
 
-  isDragging = false;
-  dragStart  = dragCurrent = null;
+  isDragging      = false;
+  dragStart       = dragCurrent = dragStartClient = null;
 }
 
 function onTouchStart(e) {
   if (!originalImage) return;
   if (drawMode) e.preventDefault();
-  const t = e.touches[0];
-  touchStartPos  = canvasCoords(t.clientX, t.clientY);
-  touchDragCur   = { ...touchStartPos };
-  touchStartTime = Date.now();
-  touchDragging  = false;
+  const t          = e.touches[0];
+  touchStartPos    = canvasCoords(t.clientX, t.clientY);
+  touchStartClient = { x: t.clientX, y: t.clientY };
+  touchDragCur     = { ...touchStartPos };
+  touchStartTime   = Date.now();
+  touchDragging    = false;
 }
 
 function onTouchMove(e) {
-  if (!originalImage || !touchStartPos) return;
-  if (!drawMode) return;
+  if (!originalImage || !touchStartPos || !drawMode) return;
   e.preventDefault();
-  const t = e.touches[0];
-  touchDragCur  = canvasCoords(t.clientX, t.clientY);
-  const dist    = Math.hypot(touchDragCur.x - touchStartPos.x, touchDragCur.y - touchStartPos.y);
-  if (dist > 8) {
+  const t      = e.touches[0];
+  touchDragCur = canvasCoords(t.clientX, t.clientY);
+  const distCSS = Math.hypot(t.clientX - touchStartClient.x, t.clientY - touchStartClient.y);
+  if (distCSS > DRAG_MIN_CSS) {
     touchDragging = true;
     renderWithSelection(touchStartPos.x, touchStartPos.y, touchDragCur.x, touchDragCur.y);
   }
@@ -339,24 +342,21 @@ function onTouchMove(e) {
 
 function onTouchEnd(e) {
   if (!originalImage || !touchStartPos) return;
-  const t  = e.changedTouches[0];
-  const ep = canvasCoords(t.clientX, t.clientY);
+  const t       = e.changedTouches[0];
+  const distCSS = Math.hypot(t.clientX - touchStartClient.x, t.clientY - touchStartClient.y);
 
   if (drawMode && touchDragging) {
     commitDrag(touchStartPos.x, touchStartPos.y, touchDragCur.x, touchDragCur.y);
-  } else {
-    const dist = Math.hypot(ep.x - touchStartPos.x, ep.y - touchStartPos.y);
-    if (dist < 22 && Date.now() - touchStartTime < 500) {
-      const face = hitFace(touchStartPos.x, touchStartPos.y);
-      if (face) {
-        face.blurred = !face.blurred;
-        render();
-        updateCounter();
-      }
+  } else if (distCSS < 20 && Date.now() - touchStartTime < 500) {
+    const face = hitFace(touchStartPos.x, touchStartPos.y);
+    if (face) {
+      face.blurred = !face.blurred;
+      render();
+      updateCounter();
     }
   }
 
-  touchStartPos = touchDragCur = null;
+  touchStartPos = touchStartClient = touchDragCur = null;
   touchDragging = false;
 }
 
